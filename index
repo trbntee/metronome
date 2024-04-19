@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 16px;
+      margin: 0;
+      padding: 20px;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    .container {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      margin: 16px 0;
+      font-family: "Hachi Maru Pop", cursive;
+      font-weight: 1200;
+      font-style: normal;
+      text-align: center;
+      font-size: 38px;
+      letter-spacing: 4px;
+      text-shadow: 2px 3px 3px rgba(3, 3, 3, 0.185);
+    }
+
+    .status {
+      margin: 20px 0 16px;
+    }
+
+    .status p {
+      text-align: center;
+      margin: 0 auto;
+      display: none;
+      text-align: center
+    }
+
+    .status .active {
+      display: block;
+    }
+
+    .current-bpm,
+    .count-down {
+      margin-right: 24px;
+    }
+
+
+    .status span {
+      margin-left: 16px;
+      font-weight: 700;
+    }
+
+    .container>label {
+      margin-bottom: 12px;
+    }
+
+    label p span {
+      font-size: 0.6em;
+      margin-left: 8px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    input {
+      margin-top: 4px;
+      padding: 5px;
+    }
+
+    button {
+      display: block;
+      border-radius: 2px;
+      width: 100%;
+      padding: 7px;
+      margin-top: 12px;
+      background-color: #5670e2;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    .buttons {
+      margin: 24px auto 0;
+    }
+
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hachi+Maru+Pop&display=swap" rel="stylesheet">
+  <title>反復練習くん</title>
+</head>
+
+<body>
+  <h1>反復練習くん</h1>
+  <div class="status">
+    <p class="default-message active">数値を入力してください</p>
+    <p class="current-bpm">現在のテンポ<span></span></p>
+    <p class="count-down">開始まで<span></span></p>
+  </div>
+  <div class="container">
+    <label>
+      <p>開始テンポ</p>
+      <input type="number" class="start-bpm" value="60" onfocus="this.select();">
+    </label>
+    <label>
+      <p>終了テンポ</p>
+      <input type="number" class="end-bpm" value="80" onfocus="this.select();">
+    </label>
+    <label>
+      <p>拍数</p>
+      <input type="number" class="repeat-count" value="4" onfocus="this.select();">
+    </label>
+    <label>
+      <p>間隔</p>
+      <input type="number" class="interval" value="4" onfocus="this.select();">
+    </label>
+    <div class="buttons">
+      <button class="start-button">開始</button>
+      <button class="end-button">停止</button>
+    </div>
+  </div>
+  <script>
+    "use strict";
+
+    let metronomeTimeoutId = null;
+    let reserveTimeoutId = null;
+
+    function playReserve(startBpm, callback) {
+      let count = 5;
+      const delayInMilliseconds = 60000 / startBpm;
+      const defaultMessage = document.querySelector('.default-message');
+      const countDown = document.querySelector('.count-down');
+      const countDownNumber = countDown.querySelector('span');
+      defaultMessage.classList.remove('active');
+      countDown.classList.add('active');
+
+      function playAudio() {
+        if (count > 0) {
+          countDownNumber.textContent = count;
+          audio["upBeat"].play();
+          count = count - 1;
+          reserveTimeoutId = setTimeout(playAudio, delayInMilliseconds);
+        } else {
+          callback();
+        }
+      }
+
+      playAudio();
+    }
+
+    function startMetronome(audio, startBpm, endBpm, interval, repeatCount) {
+      let bpm = startBpm;
+      let repeatNumber = 0;
+
+      const defaultMessage = document.querySelector('.default-message');
+      const countDown = document.querySelector('.count-down');
+      const currentBpm = document.querySelector('.current-bpm');
+      const currentBpmNumber = currentBpm.querySelector('span');
+      countDown.classList.remove('active');
+      currentBpm.classList.add('active');
+
+      function playNextBpm() {
+        if (bpm > endBpm) {
+          bpm = endBpm;
+        }
+        currentBpmNumber.textContent = bpm;
+        const delayInMilliseconds = 60000 / bpm;
+        playMetronome(audio, repeatCount, delayInMilliseconds, () => {
+          if (bpm < endBpm) {
+            bpm += interval;
+            repeatNumber++;
+            playNextBpm();
+          } else if (bpm >= endBpm) {
+            audio["endSound"].play();
+            currentBpm.classList.remove('active');
+            defaultMessage.classList.add('active');
+            const initialMessage = defaultMessage.textContent;
+            defaultMessage.textContent = "目標テンポに到達しました。繰り返した回数: " + repeatNumber;
+            setTimeout(() => {
+              defaultMessage.textContent = initialMessage;
+            }, 5000);
+          }
+        });
+      }
+
+      playNextBpm();
+    }
+
+    function playMetronome(audio, repeatCount, delayInMilliseconds, callback) {
+      let count = 0;
+
+      function playAudio() {
+        if (count < repeatCount) {
+          if (count === 0) {
+            audio["downBeat"].play();
+          } else {
+            audio["upBeat"].play();
+          }
+          count++;
+          metronomeTimeoutId = setTimeout(playAudio, delayInMilliseconds);
+        } else {
+          callback();
+        }
+      }
+
+      playAudio();
+    }
+
+    function stopMetronome() {
+      const defaultMessage = document.querySelector('.default-message');
+      const countDown = document.querySelector('.count-down');
+      const currentBpm = document.querySelector('.current-bpm');
+      countDown.classList.remove('active');
+      currentBpm.classList.remove('active');
+      defaultMessage.classList.add('active');
+      if (metronomeTimeoutId) {
+        const currentBpm = document.querySelector('.current-bpm');
+        currentBpm.classList.remove('active');
+        clearTimeout(metronomeTimeoutId);
+        metronomeTimeoutId = null;
+      }
+
+      if (reserveTimeoutId) {
+        const countDown = document.querySelector('.count-down');
+        countDown.classList.remove('active');
+        clearTimeout(reserveTimeoutId);
+        reserveTimeoutId = null;
+      }
+    }
+
+    const downBeatFile = "C:\\Users\\tmyzx\\Downloads\\仮想通貨データ\\通貨データ\\メトロノームのチーン.mp3";
+    const upBeatFile = "C:\\Users\\tmyzx\\Downloads\\仮想通貨データ\\通貨データ\\メトロノームのカチッ.mp3";
+    const endSoundFile = "C:\\Users\\tmyzx\\Downloads\\仮想通貨データ\\通貨データ\\スライドホイッスルファンファーレ2.mp3";
+    const downBeat = new Audio(downBeatFile);
+    const upBeat = new Audio(upBeatFile);
+    const endSound = new Audio(endSoundFile);
+
+
+
+    const audio = {
+      upBeat: upBeat,
+      downBeat: downBeat,
+      endSound: endSound,
+    }
+
+    const startButton = document.querySelector('.start-button');
+    const endButton = document.querySelector('.end-button');
+
+    const defaultMessage = document.querySelector('.default-message');
+    const currentBpm = document.querySelector('.current-bpm');
+    const countDown = document.querySelector('.count-down');
+
+    startButton.addEventListener('click', function () {
+      stopMetronome();
+      const startBpm = parseInt(document.querySelector('.start-bpm').value);
+      const endBpm = parseInt(document.querySelector('.end-bpm').value);
+      const repeatCount = parseInt(document.querySelector('.repeat-count').value);
+      const interval = parseInt(document.querySelector('.interval').value);
+      playReserve(startBpm, () => {
+        startMetronome(audio, startBpm, endBpm, interval, repeatCount);
+      });
+    });
+
+    endButton.addEventListener('click', function () {
+      stopMetronome();
+    });
+
+    function noscroll(e) {
+      e.preventDefault();
+    }
+
+    $('#off').on('click', function () {
+      document.addEventListener('touchmove', noscroll, { passive: false });
+      document.addEventListener('wheel', noscroll, { passive: false });
+    });
+
+    $('#on').on('click', function () {
+      document.removeEventListener('touchmove', noscroll);
+      document.removeEventListener('wheel', noscroll);
+    });
+
+  </script>
+</body>
+
+</html>
